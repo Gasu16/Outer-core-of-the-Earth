@@ -1,4 +1,4 @@
-""" LAST UPDATE: 16 JENUARY 2018"""
+""" LAST UPDATE: 18 JENUARY 2018"""
 
 import numpy
 
@@ -157,10 +157,11 @@ def get_outer_core_particles():
     rhof = numpy.ones_like(x) * 1000
     csf = numpy.ones_like(x) * cs1
     u = numpy.ones_like(x)*0
-    v = numpy.ones_like(x)*0
+    v = numpy.ones_like(x)*1000
     w = numpy.ones_like(x)*0
 
     outer_core = get_particle_array_wcsph(name="outer_core", x=x, y=y, z=z, h=hf, m=mf, rho0=rhof,uo=u, v0=v, w0=w, cs=csf)
+
     return outer_core
 
 
@@ -197,6 +198,23 @@ def get_mantle():
 
 
 class Impact(Application):
+    """
+    x, y, z = numpy.mgrid[-r1:r1:dx, -r1:r1:dx, -0.002:0.002:dx]
+    x = x.ravel()
+    y = y.ravel()
+    z = z.ravel()
+
+    d = (x * x + y * y + z * z)
+    keep = numpy.flatnonzero((d < r1 * r1) * (r * r < d))
+
+    x = x[keep]
+    y = y[keep]
+    z = z[keep]
+
+    ro = numpy.ones_like(x) * ro1
+    co = C1
+    alpha = alpha1
+    """
     def create_particles(self):
         outer_core = get_outer_core_particles()
         inner_core = get_inner_core_particles()
@@ -204,7 +222,7 @@ class Impact(Application):
 
         return [outer_core, inner_core, mantle]
     # RIGID BODY FUNCTIONS
-    """
+
     def create_solver(self):
         dim = 3
         kernel = CubicSpline(dim=dim)
@@ -220,13 +238,13 @@ class Impact(Application):
         solver.set_time_step(dt)
         solver.set_final_time(tf)
         solver.set_print_freq(100)
-        return solver """
+        return solver
 
 
     """ In case of rigid body we have to put equation of RigidBodyMoments and RigidBodyMotion
         In case of fluid body we have to put equation of ContinuityEquation and MomentumEquation """
     # Equation of rigid body
-    """
+
     def create_equations(self):
         equations = [
             Group(equations=[RigidBodyMoments(dest='inner_core', sources=None)]),
@@ -244,14 +262,13 @@ class Impact(Application):
 
 
         ]
-        return equations"""
+        return equations
 
     # FLUID FUNCTIONS
-
+    """
     def create_solver(self):
         kernel = Gaussian(dim=2)
-
-        integrator = EPECIntegrator(fluid=WCSPHStep())
+        integrator = EPECIntegrator(outer_core=WCSPHStep())
 
         dt = 5e-6;
         tf = 0.0076
@@ -261,6 +278,7 @@ class Impact(Application):
                         output_at_times=[0.0008, 0.0038])
 
         return solver
+    """
     """ THIS IS FOR ALI PLEASE READ"""
     # We have to replace some variables like self.ro and self.co with their corrispettive in this program
     # Remember it'll returns some errors like Class object has no attribute 'some_attributes'
@@ -271,26 +289,27 @@ class Impact(Application):
     # alpha ==> produces a shear and bulk viscosity
     # beta ==> used to handle high Mach number shocks
     # c0 ==> reference speed of sound
+    """
     def create_equations(self):
         equations = [
             Group(equations=[
-                TaitEOS(dest='fluid', sources=None, rho0=self.ro,
-                        c0=self.co, gamma=7.0),
+                TaitEOS(dest='outer_core', sources=None, rho0=1000,
+                        c0=1498, gamma=7.0),
             ], real=False),
 
             Group(equations=[
-                ContinuityEquation(dest='fluid', sources=['fluid', ]),
+                ContinuityEquation(dest='outer_core', sources=['outer_core', ]),
 
-                MomentumEquation(dest='fluid', sources=['fluid'],
-                                 alpha=self.alpha, beta=0.0, c0=self.co),
+                MomentumEquation(dest='outer_core', sources=['outer_core'],
+                                 alpha=0.1, beta=0.0, c0=1498),
 
-                XSPHCorrection(dest='fluid', sources=['fluid']),
+                XSPHCorrection(dest='outer_core', sources=['outer_core']),
 
             ]),
         ]
         return equations
-
+    """
 
 if __name__ == '__main__':
     app = Impact()
-app.run()
+    app.run()
